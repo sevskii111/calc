@@ -38,7 +38,7 @@ struct String {
 };
 
 struct Token {
-	char type[3];
+	char type[4];
 	char charVal;
 	double intVal;
 	struct Token *previous;

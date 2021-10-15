@@ -17,7 +17,7 @@ clean:
 	rm -rf src/*.o
 
 calc: src/calc.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(CFLAGS)
 
 debug: src/calc.o
 	$(CC) $(CFLAGS) $(CDEBUG) $^ -o calc
