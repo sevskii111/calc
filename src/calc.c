@@ -91,8 +91,11 @@ void freeScope(struct Scope *scope, struct Scope **currentScope)
 	}
 }
 
-void insertToken(struct Scope *scope, char *type, char charVal, double intVal)
+int insertToken(struct Scope *scope, char *type, char charVal, double intVal)
 {
+	if (scope == NULL) {
+		return 1;
+	}
 	if (scope->last == NULL) {
 		scope->first = (struct Token *)malloc(sizeof(struct Token));
 		scope->last = scope->first;
@@ -107,6 +110,7 @@ void insertToken(struct Scope *scope, char *type, char charVal, double intVal)
 	strcpy(scope->last->type, type);
 	scope->last->charVal = charVal;
 	scope->last->intVal = intVal;
+	return 0;
 }
 
 void freeAll(struct Scope *scope)
@@ -210,7 +214,7 @@ void findOperations(char *operators, int numOperators, struct Scope *scope)
 	for(; token != NULL && token->next != NULL; token = token->next) {
 		for (i = 0, operator = operators; i < numOperators; i++, operator = &operators[i]) {
 			if (strcmp(token->type, OP) == 0 && token->charVal == *operator) {
-				if (token->previous == NULL || token->next == NULL || strcmp(token->next->type, NUM)
+				if (token->previous == NULL || token->next == NULL || strcmp(token->next->type, NUM) || token->previous->next != token
 					|| strcmp(token->previous->type, NUM)) {
 						freeAll(scope);
 						printf("Sytax error.\n");
@@ -287,41 +291,50 @@ int main(int argc, char *argv[])
 	}
 
 	/* Tokenise */
-	str = input.str;
-	while (*str != '\0') {
-		strStart = str;
-		if (isspace(*str)) {
-			/* Space */
-			str++;
-		} else if (*str == '(') {
-			addScope(currentScope, &currentScope);
-			str++;
-		} else if (*str == ')') {
-			insertToken(currentScope, NUM, '\0', evaluateScope(currentScope, &currentScope));
-			str++;
-		} else if ((number = strtold(str, &str)) == 0.0L && (number = strtoconst(str, &str)) == 0.0L) {
-			/* NaN */
-			insertToken(currentScope, OP, normalise(*str), 0);
-			str++;
-		} else {
-			/* Number */
-			if ((*strStart == '+' || *strStart == '-')
-				&& currentScope->last != NULL
-				&& strcmp(currentScope->last->type, OP)) {
-				//Assume this was supposed to be an operation
-				insertToken(currentScope, OP, *strStart, 0);
+	char err = 0;
+	if (input.str) {
+		str = input.str;
+		while (*str != '\0') {
+			strStart = str;
+			if (isspace(*str)) {
+				/* Space */
+				str++;
+			} else if (*str == '(') {
+				addScope(currentScope, &currentScope);
+				str++;
+			} else if (*str == ')') {
+				if (insertToken(currentScope, NUM, '\0', evaluateScope(currentScope, &currentScope))) {
+					printf("Tokeniser failed\n");
+					err = 1;
+					break;
+				}
+				str++;
+			} else if ((number = strtold(str, &str)) == 0.0L && (number = strtoconst(str, &str)) == 0.0L) {
+				/* NaN */
+				insertToken(currentScope, OP, normalise(*str), 0);
+				str++;
+			} else {
+				/* Number */
+				if ((*strStart == '+' || *strStart == '-')
+					&& currentScope->last != NULL
+					&& strcmp(currentScope->last->type, OP)) {
+					//Assume this was supposed to be an operation
+					insertToken(currentScope, OP, *strStart, 0);
+				}
+				insertToken(currentScope, NUM, '\0', number);
 			}
-			insertToken(currentScope, NUM, '\0', number);
 		}
+
+		/*
+		* TODO: Increase precision
+		* TODO: Allow precision to be specified
+		*/
+		if (!err) {
+			printf("%.15g\n", evaluateScope(currentScope, &currentScope));
+		}
+
+		free(input.str);
 	}
-
-	/*
-	 * TODO: Increase precision
-	 * TODO: Allow precision to be specified
-	 */
-	printf("%.15g\n", evaluateScope(currentScope, &currentScope));
-
-	free(input.str);
 
 	return 0;
 }
